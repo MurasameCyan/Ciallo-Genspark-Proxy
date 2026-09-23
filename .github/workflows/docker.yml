@@ -26,7 +26,7 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
       - name: Compile application
-        run: python -m compileall -q app main.py gs_login.py gs_register.py gs_reg_driver.py gs_export_template.py
+        run: python -m compileall -q app main.py gs_login.py gs_reg_driver.py gs_export.py two_captcha.py
 
   build:
     needs: test

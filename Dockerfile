@@ -37,7 +37,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
 
 COPY app ./app
 COPY web ./web
-COPY main.py gs_login.py gs_register.py gs_reg_driver.py gs_export_template.py ./
+COPY main.py gs_login.py gs_reg_driver.py gs_export.py two_captcha.py ./
 COPY accounts.example.json ./
 COPY LICENSE DISCLAIMER.md ./
 COPY docker/entrypoint.sh /usr/local/bin/ciallo-entrypoint

@@ -4,7 +4,7 @@
   const $ = (selector) => document.querySelector(selector);
   const els = {
     build: $('#build-id'), connection: $('#connection-pill'), service: $('#service-status'), servicePill: $('#service-pill'), uptime: $('#uptime-text'),
-    accountCount: $('#account-count'), readyCount: $('#ready-count'), registrationState: $('#registration-state'), registrationDetail: $('#registration-detail'), registrationPill: $('#registration-pill'),
+    accountCount: $('#account-count'), readyCount: $('#ready-count'), registrationState: $('#registration-state'), registrationDetail: $('#registration-detail'), registrationPill: $('#registration-pill'), captchaModePill: $('#captcha-mode-pill'),
     accountsBadge: $('#accounts-badge'), accountsBody: $('#accounts-body'), registerForm: $('#registration-form'), registerStart: $('#register-start'), registerStop: $('#register-stop'),
     configForm: $('#config-form'), configPill: $('#config-pill'), configHint: $('#config-hint'), configSave: $('#config-save'), logList: $('#log-list'), logLevel: $('#log-level'), autoScroll: $('#log-autoscroll'),
     toastRegion: $('#toast-region'), themeToggle: $('#theme-toggle')
@@ -12,6 +12,7 @@
   const fields = {
     registerSeq: $('#register-seq'), registerEmail: $('#register-email'), registerProxy: $('#register-proxy'),
     captcha: $('#captcha-value'), code: $('#code-value'), mailApiBase: $('#mail-api-base'), mailAdminAuth: $('#mail-admin-auth'), mailDomain: $('#mail-domain'),
+    registerAutoSolve: $('#register-auto-solve'), twocaptchaKey: $('#twocaptcha-key'), twocaptchaProxy: $('#twocaptcha-proxy'),
     mailDomains: $('#mail-domains'), mailDomainMode: $('#mail-domain-mode'), mailAuthMode: $('#mail-auth-mode'), mailCreatePath: $('#mail-create-path'), mailPollInterval: $('#mail-poll-interval')
   };
   const state = { logs: [], accounts: [], configDirty: false, registration: null, source: null, refreshBusy: false, persistedForm: {} };
@@ -103,16 +104,20 @@
 
   function configPayload() {
     const numeric = Number(fields.mailPollInterval.value);
-    return { mail_api_base: fields.mailApiBase.value.trim(), mail_admin_auth: fields.mailAdminAuth.value, mail_domain: fields.mailDomain.value.trim(), mail_domains: fields.mailDomains.value.split(/[,\n]/).map((item) => item.trim()).filter(Boolean), mail_domain_mode: fields.mailDomainMode.value, mail_auth_mode: fields.mailAuthMode.value, mail_create_path: fields.mailCreatePath.value.trim(), mail_poll_interval: Number.isFinite(numeric) && numeric > 0 ? numeric : 3 };
+    return { mail_api_base: fields.mailApiBase.value.trim(), mail_admin_auth: fields.mailAdminAuth.value, mail_domain: fields.mailDomain.value.trim(), mail_domains: fields.mailDomains.value.split(/[,\n]/).map((item) => item.trim()).filter(Boolean), mail_domain_mode: fields.mailDomainMode.value, mail_auth_mode: fields.mailAuthMode.value, mail_create_path: fields.mailCreatePath.value.trim(), mail_poll_interval: Number.isFinite(numeric) && numeric > 0 ? numeric : 3, twocaptcha_key: fields.twocaptchaKey.value, twocaptcha_proxy: fields.twocaptchaProxy.value.trim(), register_auto_solve: Boolean(fields.registerAutoSolve && fields.registerAutoSolve.checked) };
   }
   function putConfig(config) {
     if (!config || typeof config !== 'object') return;
     const domains = Array.isArray(config.mail_domains) ? config.mail_domains : (typeof config.mail_domains === 'string' ? config.mail_domains.split(/[,\n]/).map((item) => item.trim()).filter(Boolean) : []);
     const hasServerConfig = Boolean(config.mail_api_base || config.mail_domain || domains.length || config.mail_create_path);
-    const map = [['mailApiBase', 'mail_api_base'], ['mailDomain', 'mail_domain'], ['mailDomainMode', 'mail_domain_mode'], ['mailAuthMode', 'mail_auth_mode'], ['mailCreatePath', 'mail_create_path'], ['mailPollInterval', 'mail_poll_interval']];
+    const map = [['mailApiBase', 'mail_api_base'], ['mailDomain', 'mail_domain'], ['mailDomainMode', 'mail_domain_mode'], ['mailAuthMode', 'mail_auth_mode'], ['mailCreatePath', 'mail_create_path'], ['mailPollInterval', 'mail_poll_interval'], ['twocaptchaProxy', 'twocaptcha_proxy']];
     map.forEach(([field, key]) => { const keepLocal = !hasServerConfig && state.persistedForm[field] !== undefined; if (config[key] !== undefined && fields[field] && !state.configDirty && !keepLocal) fields[field].value = config[key]; });
     if (domains.length && !state.configDirty) fields.mailDomains.value = domains.join('\n');
     if (config.mail_admin_auth && !state.configDirty) fields.mailAdminAuth.value = config.mail_admin_auth;
+    if (config.register_auto_solve !== undefined && fields.registerAutoSolve) fields.registerAutoSolve.checked = config.register_auto_solve !== false;
+    if (config.twocaptcha_key_set) fields.twocaptchaKey.placeholder = '已设置（留空保持不变）';
+    const autoReady = Boolean(config.twocaptcha_key_set) && fields.registerAutoSolve && fields.registerAutoSolve.checked;
+    setPill(els.captchaModePill, autoReady ? '2captcha 自动' : '手动 CAPTCHA', autoReady ? 'success' : 'warning');
     setPill(els.configPill, hasServerConfig ? '已配置' : '待配置', hasServerConfig ? 'success' : 'warning');
   }
   async function loadConfig(force = false) {
@@ -137,7 +142,7 @@
 
   async function startRegistration(event) {
     event.preventDefault(); setBusy(els.registerStart, true, '启动中…');
-    const seq = fields.registerSeq.value.trim(); const payload = { ...(seq ? { seq: Number(seq) } : {}), ...(fields.registerEmail.value.trim() ? { email: fields.registerEmail.value.trim() } : {}), ...(fields.registerProxy.value.trim() ? { proxy: fields.registerProxy.value.trim() } : {}) };
+    const seq = fields.registerSeq.value.trim(); const payload = { ...(seq ? { seq: Number(seq) } : {}), ...(fields.registerEmail.value.trim() ? { email: fields.registerEmail.value.trim() } : {}), ...(fields.registerProxy.value.trim() ? { proxy: fields.registerProxy.value.trim() } : {}), auto_solve: Boolean(fields.registerAutoSolve && fields.registerAutoSolve.checked) };
     try { const result = await api('/api/register/start', { method: 'POST', body: JSON.stringify(payload) }); renderRegistration(result); showToast(`注册任务已启动${result.job_id ? `：${result.job_id}` : ''}`, 'success'); }
     catch (error) { showToast(error.message); }
     finally { setBusy(els.registerStart, false, '开始注册'); }

@@ -24,6 +24,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "mail_create_path": os.environ.get("MAIL_CREATE_PATH") or "",
     "mail_poll_interval": float(os.environ.get("MAIL_POLL_INTERVAL") or 2),
     "mail_timeout": int(os.environ.get("MAIL_TIMEOUT") or 240),
+    "register_auto_solve": os.environ.get("REGISTER_AUTO_SOLVE", "1") not in {"0", "false", "no"},
+    "register_password": os.environ.get("REGISTER_PASSWORD") or "",
+    "twocaptcha_key": os.environ.get("TWOCAPTCHA_KEY") or "",
+    "twocaptcha_proxy": os.environ.get("TWOCAPTCHA_PROXY") or "",
 }
 
 _ALLOWED = {
@@ -36,6 +40,10 @@ _ALLOWED = {
     "mail_create_path",
     "mail_poll_interval",
     "mail_timeout",
+    "register_auto_solve",
+    "register_password",
+    "twocaptcha_key",
+    "twocaptcha_proxy",
 }
 
 
@@ -68,7 +76,7 @@ class ConfigStore:
                 if key not in patch:
                     continue
                 value = patch[key]
-                if key in {"mail_api_base", "mail_domain", "mail_auth_mode", "mail_create_path", "mail_domain_mode"}:
+                if key in {"mail_api_base", "mail_domain", "mail_auth_mode", "mail_create_path", "mail_domain_mode", "register_password", "twocaptcha_key", "twocaptcha_proxy"}:
                     value = str(value or "").strip()
                 elif key == "mail_domains":
                     if isinstance(value, list):
@@ -79,7 +87,12 @@ class ConfigStore:
                     value = max(0.5, min(60.0, float(value)))
                 elif key == "mail_timeout":
                     value = max(30, min(1800, int(value)))
-                if key == "mail_admin_auth" and str(value).strip() in {"", "********", "(已设置)"}:
+                elif key == "register_auto_solve":
+                    if isinstance(value, str):
+                        value = value.strip().lower() not in {"0", "false", "no", "off"}
+                    else:
+                        value = bool(value)
+                if key in {"mail_admin_auth", "register_password", "twocaptcha_key"} and str(value).strip() in {"", "********", "(已设置)"}:
                     continue
                 current[key] = value
             self._atomic_write(current)
@@ -87,9 +100,9 @@ class ConfigStore:
 
     def public(self) -> dict[str, Any]:
         value = self.load()
-        secret = str(value.get("mail_admin_auth") or "")
-        value["mail_admin_auth"] = ""
-        value["mail_admin_auth_set"] = bool(secret)
+        for secret_key in ("mail_admin_auth", "register_password", "twocaptcha_key"):
+            value[f"{secret_key}_set"] = bool(str(value.get(secret_key) or ""))
+            value[secret_key] = ""
         value.pop("accounts_file", None)
         return value
 

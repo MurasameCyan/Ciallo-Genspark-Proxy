@@ -137,6 +137,12 @@ def api_key_required(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
+def registration_error(exc: Exception) -> HTTPException:
+    """Turn orchestrator errors into client-visible responses instead of 500s."""
+    status = 409 if isinstance(exc, RuntimeError) else 400
+    return HTTPException(status_code=status, detail=str(exc) or exc.__class__.__name__)
+
+
 @app.on_event("startup")
 async def startup() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -229,7 +235,7 @@ async def update_config(request: Request) -> dict[str, Any]:
     panel_required(request)
     body = await request.json()
     saved = config_store.save(body)
-    logs.emit("ok", "[config] 邮箱配置已保存")
+    logs.emit("ok", "[config] 配置已保存")
     return config_store.public()
 
 
@@ -248,9 +254,14 @@ async def register_start(request: Request) -> dict[str, Any]:
     panel_required(request)
     body = await request.json()
     raw_seq = body.get("seq")
-    seq = int(raw_seq) if raw_seq not in (None, "") else None
-    result = registration.start(seq=seq, email=str(body.get("email") or ""), proxy=str(body.get("proxy") or ""))
-    logs.emit("info", f"[register] queued job={result['job_id']} seq={result['seq']}")
+    try:
+        seq = int(raw_seq) if raw_seq not in (None, "") else None
+        raw_auto = body.get("auto_solve")
+        auto_solve = None if raw_auto is None else bool(raw_auto)
+        result = registration.start(seq=seq, email=str(body.get("email") or ""), proxy=str(body.get("proxy") or ""), auto_solve=auto_solve)
+    except (RuntimeError, ValueError, TypeError) as exc:
+        raise registration_error(exc) from exc
+    logs.emit("info", f"[register] queued job={result['job_id']} seq={result['seq']} auto_solve={result.get('auto_solve')}")
     return result
 
 
@@ -258,7 +269,10 @@ async def register_start(request: Request) -> dict[str, Any]:
 async def register_command(request: Request) -> dict[str, Any]:
     panel_required(request)
     body = await request.json()
-    return registration.command(str(body.get("command") or ""), str(body.get("value") or ""))
+    try:
+        return registration.command(str(body.get("command") or ""), str(body.get("value") or ""))
+    except (RuntimeError, ValueError) as exc:
+        raise registration_error(exc) from exc
 
 
 @app.post("/api/register/stop")

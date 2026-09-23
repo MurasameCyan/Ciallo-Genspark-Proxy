@@ -1,8 +1,8 @@
 # Ciallo Genspark Proxy
 
-OpenAI-compatible Genspark web-session bridge with a local control plane, account rotation, manual browser registration orchestration, and Cloudflare Temp Email integration.
+OpenAI-compatible Genspark web-session bridge with a local control plane, account rotation, browser registration orchestration (manual or 2captcha-assisted), and Cloudflare Temp Email integration.
 
-> Unofficial software. Use only with accounts and infrastructure you own, and follow the upstream service terms and applicable law. The registration flow keeps CAPTCHA manual; it does not bypass CAPTCHA or other access controls.
+> Unofficial software. Use only with accounts and infrastructure you own, and follow the upstream service terms and applicable law. CAPTCHA solving is delegated to the 2captcha service you configure; no access control is bypassed.
 
 ## Features
 
@@ -11,6 +11,7 @@ OpenAI-compatible Genspark web-session bridge with a local control plane, accoun
 - Chinese responsive dashboard modeled after the Ciallo Zen Proxy console: overview, accounts, registration controls, mailbox configuration, and SSE logs.
 - Cloudflare Temp Email API: admin/public auth modes, configurable create path, mailbox JWT polling, Genspark `XXX-XXX` and six-digit code extraction.
 - Mail domain pool: `mail_domain` fallback plus `mail_domains` / `MAIL_DOMAINS`, round-robin or random selection, hot configuration persistence.
+- CAPTCHA automation: optional 2captcha solver (`TWOCAPTCHA_KEY`) with automatic retry on rejected images, driven end-to-end by the orchestrator; manual takeover remains available.
 - Docker image published for `linux/amd64` and `linux/arm64` by GitHub Actions.
 
 ## Quick start with GHCR
@@ -78,9 +79,17 @@ Use the dashboard **注册编排** card:
 
 1. Start a task. If the email is blank, the service creates a Cloudflare mailbox from the configured pool.
 2. A persistent browser opens the Genspark signup form and fills the mailbox.
-3. Solve the CAPTCHA yourself and submit the CAPTCHA value in the dashboard.
-4. Request the verification code. The mailbox is polled directly and the latest matching code is submitted.
-5. Password/create/export steps complete after the provider accepts the verification.
+3. CAPTCHA handling: with `TWOCAPTCHA_KEY` set and 自动解验证码 enabled, the orchestrator sends the driver `autocap`, which reads the challenge image, submits it to 2captcha, fills the answer, and retries up to five times with a refreshed image. Without a key, solve it yourself and submit the value in the dashboard.
+4. The mailbox is polled directly and the latest matching code is submitted, then the generated password is filled and the account created.
+5. Cookies are exported with `gs_export.py`; the pool entry records email, password, `cogen_id`, and cookie file. The generated password is read back from the driver log, so account recovery works without the browser.
+
+Per-job commands available from the dashboard: `autocap`, `capimg`, `caprefresh`, `state`, `pages`, `sendcode`, `password`, `create`, `extract`, plus valued `captcha`, `code`, `click`, `type`, `goto`, and `fill` (`fill` takes `selector<TAB>text`).
+
+```dotenv
+REGISTER_AUTO_SOLVE=1
+TWOCAPTCHA_KEY=your-2captcha-key
+TWOCAPTCHA_PROXY=http://user:pass@proxy:port   # optional solver egress
+```
 
 A manually supplied email can be used when the temporary mailbox backend is unavailable; then submit the received code through the dashboard. Stop a task before deleting its data directory.
 
