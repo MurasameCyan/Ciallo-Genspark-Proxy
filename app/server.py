@@ -79,15 +79,15 @@ class PanelAuth:
             return ""
 
     def _resolve_password(self) -> tuple[str, str]:
-        """A panel_password file is an explicit override (mounted secret, or a way to
-        rotate the credential without recreating the container). PANEL_PASS stays the
-        default whenever no file is present."""
-        from_file = self._read_password_file()
-        if from_file:
-            return from_file, "file"
+        """PANEL_PASS configures the container and therefore wins. A panel_password
+        file is the fallback for deployments that mount a secret instead of setting
+        env, so the env value is never silently overridden by a stray file."""
         from_env = os.environ.get("PANEL_PASS") or ""
         if from_env:
             return from_env, "env"
+        from_file = self._read_password_file()
+        if from_file:
+            return from_file, "file"
         return "", "none"
 
     @property

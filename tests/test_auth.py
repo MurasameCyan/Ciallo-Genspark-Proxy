@@ -13,21 +13,14 @@ def make_auth(monkeypatch, tmp_path, env_pass="", file_text=None, file_name="pan
     return PanelAuth()
 
 
-def test_password_file_overrides_environment_default(monkeypatch, tmp_path):
+def test_environment_password_wins_over_file(monkeypatch, tmp_path):
     auth = make_auth(monkeypatch, tmp_path, env_pass="from-env", file_text="from-file")
-
-    assert auth.password == "from-file"
-    assert auth.password_source == "file"
-    assert auth.login("admin", "from-file") is not None
-    assert auth.login("admin", "from-env") is None
-
-
-def test_environment_is_used_when_no_file_exists(monkeypatch, tmp_path):
-    auth = make_auth(monkeypatch, tmp_path, env_pass="from-env")
 
     assert auth.password == "from-env"
     assert auth.password_source == "env"
     assert auth.login("admin", "from-env") is not None
+    assert auth.login("admin", "from-file") is None
+
 
 
 def test_password_file_is_used_when_env_is_empty(monkeypatch, tmp_path):
@@ -37,6 +30,7 @@ def test_password_file_is_used_when_env_is_empty(monkeypatch, tmp_path):
     assert auth.enabled is True
     assert auth.login("admin", "from-file") is not None
     assert auth.login("admin", "wrong") is None
+
 
 def test_explicit_password_file_path_is_honoured(monkeypatch, tmp_path):
     elsewhere = tmp_path / "nested"

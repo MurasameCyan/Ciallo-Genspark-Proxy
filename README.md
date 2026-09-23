@@ -27,21 +27,19 @@ Open `http://127.0.0.1:8899/`. If `PANEL_PASS` is set, use `PANEL_USER` (default
 
 ### Panel password sources
 
-The dashboard password is resolved in this order:
-
-1. A `panel_password` file next to the app (`/app/panel_password` in the image), or the path in `PANEL_PASS_FILE`. **A non-empty file overrides the environment.**
-2. `PANEL_PASS` from the environment.
+1. `PANEL_PASS` from the environment. It configures the container, so it always wins.
+2. A `panel_password` file next to the app (`/app/panel_password` in the image), or the path in `PANEL_PASS_FILE` — the fallback for deployments that mount a secret instead of setting env.
 3. Neither: login protection is off, and the startup log warns about it.
 
-The file exists so the credential can be rotated without recreating the container:
+Changing the password therefore means changing `PANEL_PASS` and recreating the container (`docker compose up -d --force-recreate`), which is why the source is logged at startup: `控制台鉴权已开启 user=admin 来源=env`. The value is never logged.
+
+For deployments that mount a secret file instead of passing env, point `PANEL_PASS_FILE` at it and leave `PANEL_PASS` unset:
 
 ```bash
-docker exec ciallo-genspark-proxy sh -lc 'openssl rand -base64 18 | tr -d "=+/" | cut -c1-16 > /app/panel_password && chmod 600 /app/panel_password'
-docker exec ciallo-genspark-proxy cat /app/panel_password   # read it back
-docker restart ciallo-genspark-proxy
+docker exec ciallo-genspark-proxy sh -lc 'test -n "$PANEL_PASS_FILE" && echo configured'
 ```
 
-The startup log names the source (`控制台鉴权已开启 user=admin 来源=file`), never the value. Note the file lives in the container layer, so `docker compose pull` plus a recreate drops it; mount it as a volume or use `PANEL_PASS` for anything long-lived.
+Do not leave a stale `panel_password` file in the image: it is only read when `PANEL_PASS` is empty, so an unexpected file silently becomes the credential.
 
 The host `./data` directory stores `accounts.json`, configuration, cookies, browser profiles, and registration logs. Treat it as sensitive. Do not publish it or expose the dashboard without a strong password and a reverse proxy/firewall.
 
