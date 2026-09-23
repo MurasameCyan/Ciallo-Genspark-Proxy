@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+*.log
+
+# Credentials, cookies, browser profiles, and runtime state
+accounts.json
+cookies*.json
+gs_cookies*.json
+genspark-ipmap.json
+profile/
+*/profile/
+out/
+gs_cmd.txt
+gs_reg*.log
+.proceed
+/data/*
+!data/.gitkeep
+
+# Local build output
+BUILD_ID
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

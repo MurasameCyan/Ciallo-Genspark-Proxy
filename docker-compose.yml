@@ -1,0 +1,40 @@
+# Ciallo Genspark Proxy
+# Production deployment pulls the multi-arch image from GHCR.
+
+services:
+  proxy:
+    image: ${IMAGE:-ghcr.io/murasamecyan/ciallo-genspark-proxy:latest}
+    container_name: ciallo-genspark-proxy
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8899}:8899"
+    environment:
+      GS_PORT: "8899"
+      GS_BIND_HOST: "0.0.0.0"
+      DATA_DIR: "/data"
+      GS_ACCOUNTS: "/data/accounts.json"
+      PANEL_USER: "${PANEL_USER:-admin}"
+      PANEL_PASS: "${PANEL_PASS:-}"
+      API_KEY: "${API_KEY:-}"
+      MAIL_API_BASE: "${MAIL_API_BASE:-}"
+      MAIL_ADMIN_AUTH: "${MAIL_ADMIN_AUTH:-}"
+      MAIL_DOMAIN: "${MAIL_DOMAIN:-}"
+      MAIL_DOMAINS: "${MAIL_DOMAINS:-}"
+      MAIL_DOMAIN_MODE: "${MAIL_DOMAIN_MODE:-round_robin}"
+      MAIL_AUTH_MODE: "${MAIL_AUTH_MODE:-x-admin-auth}"
+      MAIL_CREATE_PATH: "${MAIL_CREATE_PATH:-}"
+      MAIL_POLL_INTERVAL: "${MAIL_POLL_INTERVAL:-2}"
+      MAIL_TIMEOUT: "${MAIL_TIMEOUT:-240}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-0}"
+    volumes:
+      - ./data:/data
+    shm_size: "1gb"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# For local source builds, use:
+#   docker build -t ciallo-genspark-proxy .
+#   docker compose up -d

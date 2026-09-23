@@ -1,0 +1,2 @@
+# Runtime data is mounted here in Docker.
+# Keep credentials, cookies, browser profiles, and logs out of version control.

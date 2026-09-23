@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Ciallo · Genspark Proxy</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <div>
+          <p class="eyebrow">CONTROL PLANE</p>
+          <h1>Ciallo <span>·</span> Genspark Proxy</h1>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span class="build-label">构建 <strong id="build-id">—</strong></span>
+        <span id="connection-pill" class="status-pill status-neutral" role="status"><i></i>连接中</span>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="切换深色和浅色主题" title="切换主题">☼</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero-row" aria-labelledby="overview-heading">
+        <div>
+          <p class="eyebrow">OVERVIEW / 实时概览</p>
+          <h2 id="overview-heading">服务控制台</h2>
+          <p class="muted">管理账号、注册流程和 Cloudflare 临时邮箱。</p>
+        </div>
+        <button class="button button-quiet" id="refresh-button" type="button"><span aria-hidden="true">↻</span> 刷新数据</button>
+      </section>
+
+      <section class="metric-grid" aria-label="服务概览">
+        <article class="metric-card accent-card">
+          <div class="metric-icon" aria-hidden="true">◉</div>
+          <div><span class="metric-label">服务状态</span><strong id="service-status">检查中</strong><small id="uptime-text">运行时间 —</small></div>
+          <span id="service-pill" class="status-pill status-neutral">—</span>
+        </article>
+        <article class="metric-card">
+          <div class="metric-icon mint" aria-hidden="true">◎</div>
+          <div><span class="metric-label">账号总数</span><strong id="account-count">0</strong><small>已纳入池中</small></div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-icon blue" aria-hidden="true">✓</div>
+          <div><span class="metric-label">可用账号</span><strong id="ready-count">0</strong><small>通过 cookie 检查</small></div>
+        </article>
+        <article class="metric-card registration-metric">
+          <div class="metric-icon orange" aria-hidden="true">↗</div>
+          <div><span class="metric-label">当前注册</span><strong id="registration-state">空闲</strong><small id="registration-detail">等待开始任务</small></div>
+          <span id="registration-pill" class="status-pill status-neutral">空闲</span>
+        </article>
+      </section>
+
+      <div class="content-grid">
+        <section class="panel panel-wide" aria-labelledby="accounts-heading">
+          <div class="panel-heading">
+            <div><p class="eyebrow">ACCOUNT POOL</p><h2 id="accounts-heading">账号列表</h2></div>
+            <span class="count-badge" id="accounts-badge">0 个账号</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th scope="col">序号</th><th scope="col">邮箱</th><th scope="col">状态</th><th scope="col">就绪</th><th scope="col">Cookie</th><th scope="col">请求 / 成功</th></tr></thead>
+              <tbody id="accounts-body"><tr class="empty-row"><td colspan="6"><span class="empty-icon">◌</span><strong>还没有账号</strong><span>完成一次注册后，账号会显示在这里。</span></td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="registration-heading">
+          <div class="panel-heading"><div><p class="eyebrow">REGISTRATION</p><h2 id="registration-heading">注册编排</h2></div><span class="status-pill status-warning">CAPTCHA 手动</span></div>
+          <p class="panel-note">验证码由你在浏览器中完成。控制台只负责推进注册步骤，不会绕过 CAPTCHA。</p>
+          <form id="registration-form" class="compact-form">
+            <div class="field-row three-col">
+              <label><span>序号 <em>可选</em></span><input id="register-seq" name="seq" type="number" min="1" step="1" placeholder="自动分配"></label>
+              <label class="field-grow"><span>邮箱 <em>可选</em></span><input id="register-email" name="email" type="email" placeholder="留空则自动创建"></label>
+              <label class="field-grow"><span>代理 <em>可选</em></span><input id="register-proxy" name="proxy" type="text" placeholder="http://..."></label>
+            </div>
+            <div class="button-row"><button class="button button-primary" id="register-start" type="submit">开始注册</button><button class="button button-danger" id="register-stop" type="button">停止任务</button></div>
+          </form>
+          <div class="command-divider"><span>手动推进</span></div>
+          <div class="command-grid">
+            <div class="command-item"><label for="captcha-value">输入 CAPTCHA</label><div class="inline-control"><input id="captcha-value" type="text" placeholder="读取图片后输入" autocomplete="off"><button class="button button-small command-button" data-command="captcha" data-value-id="captcha-value" type="button">提交</button></div></div>
+            <div class="command-item"><label for="code-value">输入邮箱验证码</label><div class="inline-control"><input id="code-value" type="text" inputmode="numeric" placeholder="6 位验证码" autocomplete="one-time-code"><button class="button button-small command-button" data-command="code" data-value-id="code-value" type="button">验证</button></div></div>
+            <button class="command-action" data-command="sendcode" type="button"><span>↗</span><span><strong>发送验证码</strong><small>请求邮件验证码</small></span></button>
+            <button class="command-action" data-command="password" type="button"><span>⌁</span><span><strong>填写密码</strong><small>使用注册密码</small></span></button>
+            <button class="command-action" data-command="create" type="button"><span>＋</span><span><strong>创建账号</strong><small>提交并导出 Cookie</small></span></button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="mail-heading">
+          <div class="panel-heading"><div><p class="eyebrow">CLOUDFLARE TEMP MAIL</p><h2 id="mail-heading">临时邮箱配置</h2></div><span id="config-pill" class="status-pill status-neutral">未加载</span></div>
+          <p class="panel-note">支持单一备用域名或域名池。域名池每行一个，注册时自动轮换。</p>
+          <form id="config-form" class="compact-form">
+            <div class="field-row two-col"><label><span>API Base URL</span><input id="mail-api-base" name="mail_api_base" type="url" placeholder="https://..." autocomplete="url"></label><label><span>创建路径</span><input id="mail-create-path" name="mail_create_path" type="text" placeholder="/accounts"></label></div>
+            <div class="field-row two-col"><label><span>管理员密钥 / 密码</span><input id="mail-admin-auth" name="mail_admin_auth" type="password" placeholder="留空保持不变" autocomplete="new-password"></label><label><span>备用域名</span><input id="mail-domain" name="mail_domain" type="text" placeholder="example.com"></label></div>
+            <label><span>域名池 <em>每行一个</em></span><textarea id="mail-domains" name="mail_domains" rows="3" placeholder="mail-a.example.com&#10;mail-b.example.com"></textarea></label>
+            <div class="field-row three-col"><label><span>域名选择</span><select id="mail-domain-mode" name="mail_domain_mode"><option value="round_robin">轮询（Round-robin）</option><option value="random">随机</option></select></label><label><span>认证模式</span><select id="mail-auth-mode" name="mail_auth_mode"><option value="x-admin-auth">管理员认证（x-admin-auth）</option><option value="bearer">Bearer Token</option><option value="x-api-key">X-API-Key</option><option value="none">匿名 API</option></select></label><label><span>轮询间隔（秒）</span><input id="mail-poll-interval" name="mail_poll_interval" type="number" min="1" step="1" placeholder="3"></label></div>
+            <div class="config-actions"><span class="form-hint" id="config-hint">配置会保存在服务端。</span><button class="button button-primary" id="config-save" type="submit">保存配置</button></div>
+          </form>
+        </section>
+
+        <section class="panel panel-wide logs-panel" aria-labelledby="logs-heading">
+          <div class="panel-heading logs-heading"><div><p class="eyebrow">EVENT STREAM</p><h2 id="logs-heading">实时日志</h2></div><div class="logs-tools"><label class="sr-only" for="log-level">日志级别</label><select id="log-level"><option value="all">全部级别</option><option value="info">INFO</option><option value="success">SUCCESS</option><option value="warning">WARNING</option><option value="error">ERROR</option></select><label class="switch-label"><input id="log-autoscroll" type="checkbox" checked><span class="switch" aria-hidden="true"></span>自动滚动</label><button class="button button-quiet button-small" id="clear-logs" type="button">清空</button></div></div>
+          <div id="log-list" class="log-list" role="log" aria-live="polite" aria-label="实时事件日志"><div class="log-empty">等待事件流…</div></div>
+        </section>
+      </div>
+    </main>
+    <footer><span>Ciallo Genspark Proxy</span><span>同源控制台 · 无外部依赖</span></footer>
+  </div>
+  <div id="toast-region" class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

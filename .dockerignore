@@ -1,0 +1,10 @@
+**/.git
+**/__pycache__
+**/.pytest_cache
+**/.venv
+.env
+*.log
+data/*
+!data/.gitkeep
+Dockerfile
+README.md
