@@ -28,6 +28,8 @@ services:
       REGISTER_AUTO_SOLVE: "${REGISTER_AUTO_SOLVE:-1}"
       TWOCAPTCHA_KEY: "${TWOCAPTCHA_KEY:-}"
       TWOCAPTCHA_PROXY: "${TWOCAPTCHA_PROXY:-}"
+      GITHUB_REPO: "${GITHUB_REPO:-MurasameCyan/Ciallo-Genspark-Proxy}"
+      GITHUB_TRACK_REF: "${GITHUB_TRACK_REF:-main}"
       COOKIE_SECURE: "${COOKIE_SECURE:-0}"
     volumes:
       - ./data:/data
@@ -38,14 +40,11 @@ services:
         max-size: "10m"
         max-file: "3"
     # 只走内部网络的话面板和 API 都不再暴露到宿主。
-    # 网络得先自己建好（compose 不会替你建 external 的）：
     #   docker network create ai-internal
     # networks:
     #   - ai-internal
 
 
-# 配合上面 services.freebuff-proxy.networks 一起解注释。external: true 是「这个网络我在
-# 外面建好了，别管它的生命周期」—— compose down 不会把它删掉，别的项目还连着。
 # networks:
 #   ai-internal:
 #     external: true

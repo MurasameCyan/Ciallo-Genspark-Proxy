@@ -97,6 +97,16 @@ A manually supplied email can be used when the temporary mailbox backend is unav
 
 Set `API_KEY` to protect `/v1/*` with either `Authorization: Bearer <key>` or `x-api-key: <key>`. Dashboard routes use the cookie session from `PANEL_USER` / `PANEL_PASS` and are not the same credential as `API_KEY`.
 
+## Update check
+
+The header shows the running build hash; the pill links to that commit, the circular-arrow button asks GitHub for the tracked branch HEAD, and the last icon opens the repository.
+
+- The check is manual on purpose. `/api/status` is polled, and folding an update check into it would burn GitHub's anonymous hourly quota within minutes.
+- Set `GITHUB_REPO` to your fork and `GITHUB_TRACK_REF` to the branch your `latest` image is built from. Both default to `MurasameCyan/Ciallo-Genspark-Proxy` and `main`.
+- `POST /api/check-update` returns `{current, latest, hasUpdate, htmlUrl, publishedAt, error}` and logs to the `[update]` subsystem. Failures (rate limit, missing branch, non-JSON) come back in `error` instead of a 500.
+- A build that shows `unknown` never reports an update: that only means `GIT_COMMIT` was not injected, so old and new cannot be compared.
+- After `docker compose pull && docker compose up -d`, the polled build becomes the new hash and the highlight clears by itself.
+
 ## Local development
 
 ```bash

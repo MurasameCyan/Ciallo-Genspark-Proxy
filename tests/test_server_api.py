@@ -73,3 +73,45 @@ def test_start_rejects_non_integer_seq():
         run(server.register_start(FakeRequest({"seq": "abc"})))
 
     assert excinfo.value.status_code == 400
+
+
+
+def test_status_carries_build_identity(monkeypatch):
+    monkeypatch.setattr(server, "build_info", lambda: {"build": "abc1234", "buildUrl": "u", "repoUrl": "r", "trackRef": "main"})
+
+    payload = server.api_status(FakeRequest())
+
+    assert payload["build"] == "abc1234"
+    assert payload["trackRef"] == "main"
+
+
+def test_check_update_route_returns_result_and_logs(monkeypatch):
+    emitted: list[tuple[str, str]] = []
+    monkeypatch.setattr(server.logs, "emit", lambda level, message: emitted.append((level, message)))
+    monkeypatch.setattr(
+        server,
+        "check_update",
+        lambda: {"current": "old1111", "latest": "new2222", "hasUpdate": True, "error": None},
+    )
+
+    result = server.api_check_update(FakeRequest())
+
+    assert result["hasUpdate"] is True
+    assert emitted and emitted[0][0] == "ok"
+    assert "new2222" in emitted[0][1]
+
+
+def test_check_update_route_logs_failure(monkeypatch):
+    emitted: list[tuple[str, str]] = []
+    monkeypatch.setattr(server.logs, "emit", lambda level, message: emitted.append((level, message)))
+    monkeypatch.setattr(
+        server,
+        "check_update",
+        lambda: {"current": "old1111", "latest": None, "hasUpdate": False, "error": "GitHub 限流(匿名每小时 60 次),过会儿再试"},
+    )
+
+    result = server.api_check_update(FakeRequest())
+
+    assert result["error"].startswith("GitHub 限流")
+    assert emitted[0][0] == "warn"
+

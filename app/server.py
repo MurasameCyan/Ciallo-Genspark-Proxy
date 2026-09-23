@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .accounts import AccountStore
+from .build import build_info, check_update
 from .config_store import ConfigStore, DATA_DIR, ROOT_DIR
 from .gateway import Gateway, MODELS
 from .registration import RegistrationService
@@ -209,11 +210,13 @@ def api_status(request: Request) -> dict[str, Any]:
     gateway.reload()
     status = gateway.health()
     return {
-        "build": os.environ.get("GIT_COMMIT") or "dev",
         "uptime_s": round(time.time() - START, 1),
         "account_count": len(status["accounts"]),
         "ready_count": sum(1 for item in status["accounts"] if item["ready"]),
         "registration": registration.snapshot(),
+        # build / buildUrl / repoUrl / trackRef: the header hash chip. They ride
+        # along with the polled status instead of costing another request.
+        **build_info(),
     }
 
 
@@ -237,6 +240,23 @@ async def update_config(request: Request) -> dict[str, Any]:
     saved = config_store.save(body)
     logs.emit("ok", "[config] 配置已保存")
     return config_store.public()
+
+
+@app.post("/api/check-update")
+def api_check_update(request: Request) -> dict[str, Any]:
+    panel_required(request)
+    result = check_update()
+    logs.emit(
+        "warn" if result["error"] else "ok",
+        f"[update] 检查更新失败: {result['error']}"
+        if result["error"]
+        else (
+            f"[update] 有新版本 {result['latest']}(当前 {result['current']}),docker compose pull 后重启"
+            if result["hasUpdate"]
+            else f"[update] 已是最新 {result['current']}"
+        ),
+    )
+    return result
 
 
 @app.get("/api/logs")

@@ -3,7 +3,7 @@
 
   const $ = (selector) => document.querySelector(selector);
   const els = {
-    build: $('#build-id'), connection: $('#connection-pill'), service: $('#service-status'), servicePill: $('#service-pill'), uptime: $('#uptime-text'),
+    build: $('#build-id'), updateButton: $('#update-button'), repoLink: $('#repo-link'), connection: $('#connection-pill'), service: $('#service-status'), servicePill: $('#service-pill'), uptime: $('#uptime-text'),
     accountCount: $('#account-count'), readyCount: $('#ready-count'), registrationState: $('#registration-state'), registrationDetail: $('#registration-detail'), registrationPill: $('#registration-pill'), captchaModePill: $('#captcha-mode-pill'),
     accountsBadge: $('#accounts-badge'), accountsBody: $('#accounts-body'), registerForm: $('#registration-form'), registerStart: $('#register-start'), registerStop: $('#register-stop'),
     configForm: $('#config-form'), configPill: $('#config-pill'), configHint: $('#config-hint'), configSave: $('#config-save'), logList: $('#log-list'), logLevel: $('#log-level'), autoScroll: $('#log-autoscroll'),
@@ -15,7 +15,7 @@
     registerAutoSolve: $('#register-auto-solve'), twocaptchaKey: $('#twocaptcha-key'), twocaptchaProxy: $('#twocaptcha-proxy'),
     mailDomains: $('#mail-domains'), mailDomainMode: $('#mail-domain-mode'), mailAuthMode: $('#mail-auth-mode'), mailCreatePath: $('#mail-create-path'), mailPollInterval: $('#mail-poll-interval')
   };
-  const state = { logs: [], accounts: [], configDirty: false, registration: null, source: null, refreshBusy: false, persistedForm: {} };
+  const state = { logs: [], accounts: [], configDirty: false, registration: null, source: null, refreshBusy: false, persistedForm: {}, latest: '' };
   const STORAGE_KEY = 'ciallo-genspark-dashboard';
   const FORM_KEYS = ['registerSeq', 'registerEmail', 'registerProxy', 'mailApiBase', 'mailDomain', 'mailDomains', 'mailDomainMode', 'mailAuthMode', 'mailCreatePath', 'mailPollInterval'];
 
@@ -91,9 +91,40 @@
     setText(els.registrationState, stateLabel); setText(els.registrationDetail, email || (registration.job_id ? `任务 ${registration.job_id}` : '等待开始任务')); setPill(els.registrationPill, running ? stateLabel : '空闲', kind, true);
     els.registerStop.disabled = !running;
   }
+  function hasNewer(latest, build) {
+    // Compare the two hashes rather than trusting the server's one-shot hasUpdate:
+    // after pulling the image the polled build becomes latest, so the badge clears
+    // itself without a second click. Either side missing means nothing to compare.
+    return Boolean(latest) && Boolean(build) && latest !== build;
+  }
+  function renderBuild(data) {
+    if (!data || typeof data !== 'object') return;
+    const build = data.build || 'unknown';
+    els.build.textContent = build === 'dev' ? 'dev' : build;
+    if (data.buildUrl) els.build.href = data.buildUrl;
+    if (data.repoUrl) els.repoLink.href = data.repoUrl;
+    const stale = hasNewer(state.latest, build);
+    els.build.classList.toggle('new', stale);
+    els.build.title = build === 'unknown'
+      ? '构建标识未知(构建时没注入 GIT_COMMIT)'
+      : `当前构建 ${build}${data.trackRef ? ` · 跟随 ${data.trackRef} 分支` : ''}${stale ? ` · 有新版本 ${state.latest}` : ''}`;
+  }
+  async function checkUpdate() {
+    const button = els.updateButton;
+    if (button) { button.disabled = true; button.classList.add('spin'); }
+    try {
+      const result = await api('/api/check-update', { method: 'POST' });
+      state.latest = result.latest || '';
+      if (result.error) showToast(`检查更新失败：${result.error}`);
+      else if (result.hasUpdate) showToast(`有新版本 ${result.latest} —— docker compose pull 后重启容器`, 'success');
+      else showToast(`已是最新${result.current ? ` ${result.current}` : ''}`, 'success');
+    } catch (error) { showToast(`检查更新失败：${error.message}`); }
+    finally { if (button) { button.disabled = false; button.classList.remove('spin'); } renderBuild(state.status); }
+  }
   function renderStatus(data) {
     if (!data || typeof data !== 'object') return;
-    if (data.build !== undefined) setText(els.build, data.build, 'dev');
+    state.status = data;
+    renderBuild(data);
     if (data.account_count !== undefined) setText(els.accountCount, data.account_count, '0');
     if (data.ready_count !== undefined) setText(els.readyCount, data.ready_count, '0');
     if (data.uptime_s !== undefined) setText(els.uptime, fmtUptime(data.uptime_s));
@@ -187,6 +218,7 @@
   document.querySelectorAll('#registration-form input, #config-form input, #config-form textarea, #config-form select').forEach((input) => input.addEventListener('input', () => { if (input.form === els.configForm) state.configDirty = true; persistForm(); }));
   els.logLevel.addEventListener('change', renderLogs); $('#clear-logs').addEventListener('click', () => { state.logs = []; renderLogs(); }); els.refreshButton.addEventListener('click', refreshAll);
   els.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'));
+  els.updateButton.addEventListener('click', checkUpdate);
 
   readStoredForm(); applyTheme(document.documentElement.dataset.theme || 'dark'); refreshAll(); connectLogs(); window.setInterval(refreshAll, 15000);
 })();
