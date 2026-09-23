@@ -94,11 +94,35 @@ def test_check_update_is_quiet_when_current(monkeypatch):
 
 
 def test_check_update_stays_quiet_when_build_unknown(monkeypatch):
-    monkeypatch.setenv("GIT_COMMIT", "")
+    # GitHub's runner exports GITHUB_SHA, which build.py also accepts. Clearing only
+    # GIT_COMMIT left the build resolvable in CI and not locally, so this test used to
+    # pass here and fail there. Clear every source the module reads.
+    for key in build._ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(build, "_from_git", lambda: "")
     result = build.check_update(fetcher_for(FakeResponse(payload={"sha": "2222222222222222"})))
+
+    assert build.build_id() == "unknown"
     assert result["hasUpdate"] is False
     assert result["latest"] == "2222222"
+
+
+def test_ci_runner_variables_do_not_fake_an_update(monkeypatch):
+    monkeypatch.delenv("GIT_COMMIT", raising=False)
+    monkeypatch.setenv("GITHUB_SHA", "1111111111111111111111111111111111111111")
+    monkeypatch.setattr(build, "_from_git", lambda: "")
+    result = build.check_update(fetcher_for(FakeResponse(payload={"sha": "1111111111111111111111111111111111111111"})))
+
+    assert build.build_id() == "1111111"
+    assert result["hasUpdate"] is False
+
+
+def test_git_commit_takes_precedence_over_other_runner_variables(monkeypatch):
+    monkeypatch.setenv("GIT_COMMIT", "2222222222222")
+    monkeypatch.setenv("GITHUB_SHA", "1111111111111111111111111111111111111111")
+
+    assert build.build_id() == "2222222"
+
 
 
 @pytest.mark.parametrize(
