@@ -10,10 +10,11 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
+from urllib.parse import parse_qs
 from typing import Any, Iterator
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .accounts import AccountStore
@@ -206,12 +207,28 @@ async def chat(request: Request) -> Response:
 
 
 @app.post("/api/login")
-async def login(request: Request) -> JSONResponse:
-    body = await request.json()
-    token = auth.login(str(body.get("user") or ""), str(body.get("pass") or ""))
+async def login(request: Request) -> Response:
+    # The dashboard form also posts natively (no JavaScript in the loop), so the
+    # button still works when login.js is blocked, stale, or never loaded. JSON
+    # callers keep the original JSON reply.
+    content_type = request.headers.get("content-type") or ""
+    if content_type.startswith("application/x-www-form-urlencoded"):
+        # Hand-parsed: Starlette's request.form() hard-requires python-multipart
+        # even for urlencoded bodies, and this endpoint only needs two fields.
+        form = parse_qs((await request.body()).decode("utf-8", "replace"))
+        user = (form.get("user") or [""])[0]
+        password = (form.get("pass") or [""])[0]
+        is_form = True
+    else:
+        body = await request.json()
+        user, password = str(body.get("user") or ""), str(body.get("pass") or "")
+        is_form = False
+    token = auth.login(user, password)
     if not token:
+        if is_form:
+            return RedirectResponse("/login.html?error=1", status_code=303)
         raise HTTPException(status_code=401, detail="用户名或密码不正确")
-    response = JSONResponse({"ok": True, "user": auth.user})
+    response: Response = RedirectResponse("/", status_code=303) if is_form else JSONResponse({"ok": True, "user": auth.user})
     response.set_cookie("gs_session", token, httponly=True, samesite="lax", secure=os.environ.get("COOKIE_SECURE") == "1", max_age=86400)
     logs.emit("ok", f"[auth] {auth.user} 登录")
     return response

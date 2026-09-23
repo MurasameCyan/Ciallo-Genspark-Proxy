@@ -1,6 +1,13 @@
 (() => {
   const form = document.getElementById('login-form');
   const error = document.getElementById('error');
+
+  // Native (no-JavaScript) submit bounces back here with ?error=1; without this the
+  // page reloads looking like nothing happened.
+  if (new URLSearchParams(window.location.search).get('error') === '1') {
+    error.textContent = '用户名或密码不正确';
+  }
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     error.textContent = '';

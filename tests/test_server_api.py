@@ -1,4 +1,5 @@
 import asyncio
+from urllib.parse import urlencode
 
 import pytest
 from fastapi import HTTPException
@@ -73,6 +74,60 @@ def test_start_rejects_non_integer_seq():
         run(server.register_start(FakeRequest({"seq": "abc"})))
 
     assert excinfo.value.status_code == 400
+
+
+class FormRequest(FakeRequest):
+    """Encodes the fields the way a browser submits the form, so the test exercises
+    the same body parsing the container runs (no stubbed form() to hide a gap)."""
+
+    def __init__(self, user, password):
+        super().__init__({})
+        self.headers = {"content-type": "application/x-www-form-urlencoded"}
+        self._body = urlencode({"user": user, "pass": password}).encode()
+
+    async def body(self):
+        return self._body
+
+@pytest.fixture
+def locked_auth(monkeypatch):
+    class FixedAuth:
+        user = "admin"
+        password = "correct-pass"
+        password_source = "env"
+        enabled = True
+
+        def valid(self, _request):
+            return False
+
+        def login(self, user, password):
+            if user != self.user or password != self.password:
+                return None
+            return "token-123"
+
+    monkeypatch.setattr(server, "auth", FixedAuth())
+
+
+def test_form_login_redirects_to_dashboard_and_sets_cookie(locked_auth):
+    response = run(server.login(FormRequest("admin", "correct-pass")))
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    assert "gs_session=token-123" in response.headers["set-cookie"]
+
+
+def test_form_login_failure_returns_to_login_page(locked_auth):
+    response = run(server.login(FormRequest("admin", "nope")))
+
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/login.html?error=1")
+    assert "gs_session" not in response.headers.get("set-cookie", "")
+
+
+def test_json_login_still_returns_json(locked_auth):
+    response = run(server.login(FakeRequest({"user": "admin", "pass": "correct-pass"})))
+
+    assert response.status_code == 200
+    assert "gs_session=token-123" in response.headers["set-cookie"]
 
 
 

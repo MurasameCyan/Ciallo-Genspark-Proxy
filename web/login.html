@@ -11,7 +11,7 @@
     <p class="eyebrow">CONTROL PLANE</p>
     <h1>Ciallo · Genspark Proxy</h1>
     <p>登录控制台后管理账号、注册任务与临时邮箱配置。</p>
-    <form id="login-form">
+    <form id="login-form" action="/api/login" method="post">
       <label>用户名<input id="user" name="user" autocomplete="username" required value="admin"></label>
       <label>密码<input id="pass" name="pass" type="password" autocomplete="current-password" required></label>
       <p id="error" role="alert"></p>
