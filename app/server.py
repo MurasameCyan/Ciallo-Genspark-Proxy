@@ -60,13 +60,35 @@ class LogBus:
             with self.lock:
                 self.clients.discard(client)
 
-
 class PanelAuth:
     def __init__(self) -> None:
         self.user = os.environ.get("PANEL_USER") or "admin"
-        self.password = os.environ.get("PANEL_PASS") or ""
+        self.password, self.password_source = self._resolve_password()
         self.sessions: set[str] = set()
         self.lock = threading.RLock()
+
+    @staticmethod
+    def _read_password_file() -> str:
+        """Sidecar credential for deployments that cannot set env (or need to rotate
+        the password without recreating the container)."""
+        configured = str(os.environ.get("PANEL_PASS_FILE") or "").strip()
+        path = Path(configured) if configured else ROOT_DIR / "panel_password"
+        try:
+            return path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+
+    def _resolve_password(self) -> tuple[str, str]:
+        """A panel_password file is an explicit override (mounted secret, or a way to
+        rotate the credential without recreating the container). PANEL_PASS stays the
+        default whenever no file is present."""
+        from_file = self._read_password_file()
+        if from_file:
+            return from_file, "file"
+        from_env = os.environ.get("PANEL_PASS") or ""
+        if from_env:
+            return from_env, "env"
+        return "", "none"
 
     @property
     def enabled(self) -> bool:
@@ -149,9 +171,9 @@ async def startup() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     logs.emit("ok", f"服务启动 build={os.environ.get('GIT_COMMIT') or 'dev'} accounts={len(gateway.accounts)}")
     if auth.enabled:
-        logs.emit("info", f"控制台鉴权已开启 user={auth.user}")
+        logs.emit("info", f"控制台鉴权已开启 user={auth.user} 来源={auth.password_source}")
     else:
-        logs.emit("warn", "PANEL_PASS 未设置，控制台未启用登录保护")
+        logs.emit("warn", "PANEL_PASS 与 panel_password 都未设置，控制台未启用登录保护")
 
 
 @app.get("/health")

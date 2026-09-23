@@ -25,6 +25,24 @@ docker compose up -d
 
 Open `http://127.0.0.1:8899/`. If `PANEL_PASS` is set, use `PANEL_USER` (default `admin`) and that password.
 
+### Panel password sources
+
+The dashboard password is resolved in this order:
+
+1. A `panel_password` file next to the app (`/app/panel_password` in the image), or the path in `PANEL_PASS_FILE`. **A non-empty file overrides the environment.**
+2. `PANEL_PASS` from the environment.
+3. Neither: login protection is off, and the startup log warns about it.
+
+The file exists so the credential can be rotated without recreating the container:
+
+```bash
+docker exec ciallo-genspark-proxy sh -lc 'openssl rand -base64 18 | tr -d "=+/" | cut -c1-16 > /app/panel_password && chmod 600 /app/panel_password'
+docker exec ciallo-genspark-proxy cat /app/panel_password   # read it back
+docker restart ciallo-genspark-proxy
+```
+
+The startup log names the source (`控制台鉴权已开启 user=admin 来源=file`), never the value. Note the file lives in the container layer, so `docker compose pull` plus a recreate drops it; mount it as a volume or use `PANEL_PASS` for anything long-lived.
+
 The host `./data` directory stores `accounts.json`, configuration, cookies, browser profiles, and registration logs. Treat it as sensitive. Do not publish it or expose the dashboard without a strong password and a reverse proxy/firewall.
 
 ## Cloudflare Temp Email

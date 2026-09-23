@@ -4,6 +4,10 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# Local notes / credentials sheet for the running deployment. Never push it.
+api.txt
+panel_password
 *.log
 
 # Credentials, cookies, browser profiles, and runtime state

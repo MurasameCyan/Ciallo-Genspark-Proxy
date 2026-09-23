@@ -3,6 +3,7 @@
 **/.pytest_cache
 **/.venv
 .env
+api.txt
 *.log
 data/*
 !data/.gitkeep
