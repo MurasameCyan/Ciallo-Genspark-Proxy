@@ -12,8 +12,6 @@ DATA_DIR = Path(os.environ.get("DATA_DIR") or ROOT_DIR / "data").expanduser()
 CONFIG_FILE = Path(os.environ.get("GS_CONFIG") or DATA_DIR / "config.json")
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "port": int(os.environ.get("GS_PORT") or 8899),
-    "bind_host": os.environ.get("GS_BIND_HOST") or "0.0.0.0",
     "accounts_file": os.environ.get("GS_ACCOUNTS") or str(DATA_DIR / "accounts.json"),
     "mail_api_base": os.environ.get("MAIL_API_BASE") or "",
     "mail_admin_auth": os.environ.get("MAIL_ADMIN_AUTH") or "",
@@ -55,23 +53,15 @@ class ConfigStore:
 
     def load(self) -> dict[str, Any]:
         with self._lock:
-            saved: dict[str, Any] = {}
-            try:
-                if self.path.is_file():
-                    raw = json.loads(self.path.read_text(encoding="utf-8"))
-                    if isinstance(raw, dict):
-                        saved = raw
-            except (OSError, ValueError):
-                saved = {}
             merged = dict(DEFAULT_CONFIG)
-            merged.update(saved)
+            merged.update(self._persisted())
             return merged
 
     def save(self, patch: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(patch, dict):
             raise ValueError("配置必须是 JSON 对象")
         with self._lock:
-            current = self.load()
+            persisted = self._persisted()
             for key in _ALLOWED:
                 if key not in patch:
                     continue
@@ -94,9 +84,21 @@ class ConfigStore:
                         value = bool(value)
                 if key in {"mail_admin_auth", "register_password", "twocaptcha_key"} and str(value).strip() in {"", "********", "(已设置)"}:
                     continue
-                current[key] = value
-            self._atomic_write(current)
-            return current
+                persisted[key] = value
+            self._atomic_write(persisted)
+            return self.load()
+
+    def _persisted(self) -> dict[str, Any]:
+        """Only panel-editable keys are stored, so environment defaults stay authoritative."""
+        saved: dict[str, Any] = {}
+        try:
+            if self.path.is_file():
+                raw = json.loads(self.path.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    saved = {key: value for key, value in raw.items() if key in _ALLOWED}
+        except (OSError, ValueError):
+            saved = {}
+        return saved
 
     def public(self) -> dict[str, Any]:
         value = self.load()
