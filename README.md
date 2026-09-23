@@ -43,6 +43,22 @@ Do not leave a stale `panel_password` file in the image: it is only read when `P
 
 The host `./data` directory stores `accounts.json`, configuration, cookies, browser profiles, and registration logs. Treat it as sensitive. Do not publish it or expose the dashboard without a strong password and a reverse proxy/firewall.
 
+## Verifying a deployment
+
+`scripts/smoke.sh` checks a running instance end to end: `/health`, that `/api/status` rejects anonymous callers, JSON login, the build identity in `/api/status`, the dashboard markup the panel needs, the native form login, and the wrong-password redirect.
+
+```bash
+PANEL_PASS=... ./scripts/smoke.sh        # targets http://127.0.0.1:8899 by default
+BASE_URL=http://host:8899 PANEL_PASS=... ./scripts/smoke.sh f957530
+```
+
+The optional argument asserts the running build hash, which is how a deployment proves it picked up a specific commit. It needs only `python3`/`python`, so it runs inside the container too (the image ships no curl):
+
+```bash
+docker exec ciallo-genspark-proxy sh -lc \
+  'BASE_URL=http://127.0.0.1:8899 PANEL_PASS="$PANEL_PASS" sh /app/scripts/smoke.sh'
+```
+
 ## Cloudflare Temp Email
 
 Deploy a compatible Worker/API such as `dreamhunter2333/cloudflare_temp_email` first. Configure the Worker root URL, not a Pages frontend URL:

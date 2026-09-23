@@ -37,6 +37,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
 
 COPY app ./app
 COPY web ./web
+COPY scripts ./scripts
 COPY main.py gs_login.py gs_reg_driver.py gs_export.py two_captcha.py ./
 COPY accounts.example.json ./
 COPY LICENSE DISCLAIMER.md ./
